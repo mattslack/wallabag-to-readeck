@@ -25,6 +25,7 @@ post "/oauth/v2/token" do
   authenticate username, password
 end
 
+# authenticate
 put "/oauth/v2/token" do
   username = params[:username]
   password = params[:password]
@@ -137,6 +138,18 @@ post "/api/entries/:id/tags.json" do
   response_body = update_bookmark(params[:id], request)
   status 200
   body response_body.to_json
+end
+
+# delete a bookmark
+delete "/api/entries/:id" do
+  response = @http.send_request("DELETE", "/api/bookmarks/#{params[:id]}", nil, {
+    authorization: @token
+  })
+  halt response.code unless response.is_a? Net::HTTPSuccess
+  status 204
+  headers \
+    "Content-Type" => "application/json"
+  body response.body
 end
 
 def authenticate(username, password)
