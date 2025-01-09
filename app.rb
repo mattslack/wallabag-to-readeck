@@ -100,6 +100,21 @@ get "/api/entries/:id/export.epub" do
   body response.body
 end
 
+# update a bookmark
+patch "/api/entries/*.json" do |id|
+  response_body = update_bookmark(id, request)
+  status 200
+  body response_body.to_json
+end
+
+# tag a bookmark
+post "/api/entries/:id/tags.json" do
+  logger.info request.body
+  response_body = update_bookmark(params[:id], request)
+  status 200
+  body response_body.to_json
+end
+
 def authenticate(username, password)
   halt 401 unless username && password
   response = @http.send_request("POST", "/api/auth",
@@ -119,4 +134,33 @@ end
 
 def port
   ENV["READECK_PORT"] || 8000
+end
+
+def update_bookmark(id, request)
+  wallabag_data = JSON.parse request.body.read
+  data = {}
+
+  data[:is_archived] = wallabag_data["archive"] == 1 if wallabag_data.has_key? "archive"
+  data[:labels] = wallabag_data["tags"].split(",") if wallabag_data.has_key? "tags"
+  logger.info wallabag_data
+
+  response = @http.send_request("PATCH", "/api/bookmarks/#{id}", data.to_json, {
+    authorization: @token,
+    "Content-Type": "application/json"
+  })
+  halt response.code unless response.is_a? Net::HTTPSuccess
+
+  data = JSON.parse(response.body)
+
+  {
+    href: response.uri,
+    id: data["id"],
+    uid: data["id"],
+    is_archived: (data["is_archived"] == true) ? 1 : 0,
+    is_deleted: 0,
+    is_starred: (data["is_marked"] == true) ? 1 : 0,
+    tags: data["labels"],
+    title: data["title"],
+    updated_at: data["updated"]
+  }
 end
