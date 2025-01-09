@@ -6,7 +6,7 @@ configure(:development) {
 }
 
 before do
-  @http = Net::HTTP.new(ENV["READECK"], port)
+  @http = Net::HTTP.new(host, port)
   @http.use_ssl = false
 end
 
@@ -167,6 +167,10 @@ def authenticate(username, password)
 
   content_type :json
   {access_token: body["token"], token_type: "bearer", expires_in: 60}.to_json
+end
+
+def host
+  ENV["READECK"] || "127.0.0.1"
 end
 
 def port
