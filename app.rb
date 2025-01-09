@@ -100,6 +100,30 @@ get "/api/entries/:id/export.epub" do
   body response.body
 end
 
+# create a bookmark
+post "/api/entries.json" do
+  wallabag_data = JSON.parse request.body.read
+  data = {}
+
+  data[:url] = wallabag_data["url"]
+  data[:title] = wallabag_data["title"] if wallabag_data.has_key? "archive"
+  data[:labels] = wallabag_data["tags"].split(",") if wallabag_data.has_key? "tags"
+
+  response = @http.send_request("POST", "/api/bookmarks/", data.to_json, {
+    authorization: @token,
+    "Content-Type": "application/json"
+  })
+  halt response.code unless response.is_a? Net::HTTPSuccess
+
+  response_body = {
+    href: response["Location"],
+    id: response["Bookmark-Id"]
+  }
+
+  status 200
+  body response_body.to_json
+end
+
 # update a bookmark
 patch "/api/entries/*.json" do |id|
   response_body = update_bookmark(id, request)
