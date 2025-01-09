@@ -88,6 +88,18 @@ get "/api/entries.json" do
   })
 end
 
+# Get an epub of a bookmark
+get "/api/entries/:id/export.epub" do
+  response = @http.send_request("GET", "/api/bookmarks/#{params[:id]}/article.epub", nil, {
+    authorization: @token
+  })
+  halt response.code unless response.is_a? Net::HTTPSuccess
+  status 200
+  headers \
+    "Content-Type" => "application/epub+zip"
+  body response.body
+end
+
 def authenticate(username, password)
   halt 401 unless username && password
   response = @http.send_request("POST", "/api/auth",
