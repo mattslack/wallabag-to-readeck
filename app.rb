@@ -10,6 +10,11 @@ before do
   @http.use_ssl = false
 end
 
+before "/api/*" do
+  @token = request.env["HTTP_AUTHORIZATION"]
+  halt 403, "Unauthorized" unless @token
+end
+
 # Wallabag API specifies a PUT here, but koreader wallabag performs a POST
 post "/oauth/v2/token" do
   request.body.rewind
@@ -25,6 +30,62 @@ put "/oauth/v2/token" do
   password = params[:password]
 
   authenticate username, password
+end
+
+# get a list of entries
+get "/api/entries.json" do
+  limit = params["perPage"] || 10
+  offset = (params["page"] || "1").to_i - 1
+  path = "/api/bookmarks?is_archived=false&type=article&sort=-created&limit=#{limit}&offset=#{offset}&labels=-pdf&site=-youtube.com"
+  logger.info path
+  response = @http.send_request("GET", path, nil, {
+    authorization: @token
+  })
+
+  items = JSON.parse(response.body).map do |bookmark|
+    {
+      is_archived: bookmark["is_archived"],
+      is_starred: bookmark["is_marked"],
+      username: "",
+      user_email: "",
+      user_id: session[:user_uid],
+      tags: bookmark["labels"],
+      is_public: false,
+      id: bookmark["id"],
+      uid: bookmark["id"],
+      title: bookmark["title"],
+      url: bookmark["url"],
+      hashed_url: "",
+      given_url: "",
+      hashed_given_url: "",
+      archived_at: "",
+      content: "",
+      created_at: bookmark["created"],
+      updated_at: "",
+      published_at: bookmark["published"],
+      published_by: bookmark["authors"],
+      starred_at: "",
+      annotations: [],
+      mimetype: "",
+      language: bookmark["lang"],
+      reading_time: "",
+      domain_name: bookmark["site"]&.gsub(/^[^:]+\/\//, ""),
+      preview_picture: bookmark.dig("resources", "thumbnail", "src") || nil,
+      http_status: response.code || 200,
+      headers: [],
+      links: []
+    }
+  end
+
+  content_type :json
+  JSON.generate({
+    page: response["Current-Page"],
+    pages: response["Total-Pages"],
+    total: response["Total-Count"],
+    _embedded: {
+      items: items
+    }
+  })
 end
 
 def authenticate(username, password)
